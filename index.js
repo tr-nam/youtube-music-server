@@ -1,6 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const path = require('path');
 
 const app = express();
@@ -11,48 +11,55 @@ app.use(express.static('public'));
 
 let mpvProcess = null;
 
-// Route trang chủ
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Route phát nhạc
 app.post('/play', (req, res) => {
     const url = req.body.url;
     
     if (!url) return res.redirect('/');
 
-    // 1. Kill process cũ nếu đang chạy
+    // Kill process cũ
     if (mpvProcess) {
         try {
-            process.kill(-mpvProcess.pid); // Kill cả nhóm process
+            process.kill(-mpvProcess.pid);
         } catch (e) {
-            console.log("Không kill được process cũ hoặc đã chết:", e.message);
+            console.log("Không kill được process cũ:", e.message);
         }
     }
 
     console.log(`Đang phát: ${url}`);
 
-    // 2. Chạy MPV mới
-    // detached: true để tạo group process riêng, dễ kill sạch sẽ
-    mpvProcess = spawn('mpv', [
-        '--no-video', 
-        '--script-opts=ytdl_hook-ytdl_path=/usr/local/bin/yt-dlp', // <-- THÊM DÒNG NÀY
-        url
-    ], { detached: true });
+    // FIX: Lấy stream URL trước bằng yt-dlp, rồi pipe vào MPV
+    exec(`yt-dlp -f bestaudio -g "${url}"`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`yt-dlp error: ${error.message}`);
+            return res.status(500).send('Lỗi khi lấy stream URL');
+        }
 
-    mpvProcess.stdout.on('data', (data) => console.log(`MPV: ${data}`));
-    mpvProcess.stderr.on('data', (data) => console.error(`MPV Error: ${data}`));
-    
-    mpvProcess.on('close', (code) => {
-        console.log(`MPV đã đóng với code ${code}`);
-        mpvProcess = null;
+        const streamUrl = stdout.trim();
+        console.log(`Stream URL: ${streamUrl}`);
+
+        // Phát stream URL trực tiếp
+        mpvProcess = spawn('mpv', [
+            '--no-video',
+            '--audio-device=alsa/default',
+            streamUrl
+        ], { detached: true });
+
+        mpvProcess.stdout.on('data', (data) => console.log(`MPV: ${data}`));
+        mpvProcess.stderr.on('data', (data) => console.error(`MPV Error: ${data}`));
+        
+        mpvProcess.on('close', (code) => {
+            console.log(`MPV đã đóng với code ${code}`);
+            mpvProcess = null;
+        });
     });
 
     res.redirect('/');
 });
 
-// Route dừng nhạc
 app.post('/stop', (req, res) => {
     if (mpvProcess) {
         try {
