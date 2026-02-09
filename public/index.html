@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Nhạc YouTube</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; color: #fff; margin: 0; }
+        .container { text-align: center; background: #333; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 90%; max-width: 400px; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: none; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 10px; transition: 0.2s; }
+        .btn-play { background: #1db954; color: white; }
+        .btn-play:hover { background: #1ed760; }
+        .btn-stop { background: #e91e63; color: white; }
+        .btn-stop:hover { background: #f06292; }
+        h2 { margin-top: 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎵 Server Player</h2>
+        <form action="/play" method="POST">
+            <input type="text" name="url" placeholder="Dán link YouTube, SoundCloud..." required autocomplete="off">
+            <button type="submit" class="btn-play">▶ Phát Nhạc</button>
+        </form>
+        <form action="/stop" method="POST">
+            <button type="submit" class="btn-stop">⏹ Dừng lại</button>
+        </form>
+    </div>
+</body>
+</html>
