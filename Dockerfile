@@ -1,17 +1,25 @@
 FROM node:20-bookworm-slim
 
-# Cài đặt các thư viện (bookworm có Python 3.11 mặc định)
+# Cài đặt dependencies
 RUN apt-get update && apt-get install -y \
     mpv \
+    pulseaudio \
+    pulseaudio-utils \
+    alsa-utils \
     python3 \
-    python3-pip \
     curl \
     ffmpeg \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Tải yt-dlp mới nhất
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-RUN chmod a+rx /usr/local/bin/yt-dlp
+# Cài yt-dlp mới nhất
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && chmod a+rx /usr/local/bin/yt-dlp
+
+# Config PulseAudio cho container
+RUN mkdir -p /root/.config/pulse && \
+    echo "autospawn = no" > /root/.config/pulse/client.conf && \
+    echo "daemon-binary = /bin/true" >> /root/.config/pulse/client.conf
 
 WORKDIR /app
 
