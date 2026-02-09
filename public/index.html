@@ -3,29 +3,275 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Nhạc YouTube</title>
+    <title>🎵 YouTube Music Server</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; color: #fff; margin: 0; }
-        .container { text-align: center; background: #333; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 90%; max-width: 400px; }
-        input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: none; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 10px; transition: 0.2s; }
-        .btn-play { background: #1db954; color: white; }
-        .btn-play:hover { background: #1ed760; }
-        .btn-stop { background: #e91e63; color: white; }
-        .btn-stop:hover { background: #f06292; }
-        h2 { margin-top: 0; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .status.playing {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        input[type="text"] {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .play-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .play-btn:hover:not(:disabled) {
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .stop-btn {
+            background: #ff4757;
+            color: white;
+        }
+        
+        .stop-btn:hover:not(:disabled) {
+            box-shadow: 0 10px 20px rgba(255, 71, 87, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .info strong {
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>🎵 Server Player</h2>
-        <form action="/play" method="POST">
-            <input type="text" name="url" placeholder="Dán link YouTube, SoundCloud..." required autocomplete="off">
-            <button type="submit" class="btn-play">▶ Phát Nhạc</button>
+        <h1>🎵 YouTube Music Server</h1>
+        <p class="subtitle">Phát nhạc trên loa server</p>
+        
+        <div class="status" id="status">
+            Sẵn sàng phát nhạc
+        </div>
+        
+        <form id="playForm">
+            <input 
+                type="text" 
+                id="urlInput"
+                name="url" 
+                placeholder="Dán link YouTube tại đây..." 
+                required 
+                autofocus
+            >
+            <button type="submit" class="play-btn" id="playBtn">
+                ▶️ Phát nhạc
+            </button>
         </form>
-        <form action="/stop" method="POST">
-            <button type="submit" class="btn-stop">⏹ Dừng lại</button>
-        </form>
+        
+        <button class="stop-btn" id="stopBtn" onclick="stopMusic()">
+            ⏹️ Dừng
+        </button>
+        
+        <div class="info">
+            <strong>💡 Hướng dẫn:</strong>
+            • Paste link YouTube (video/playlist)<br>
+            • Nhạc phát trên loa server laptop<br>
+            • Remote từ phone/PC qua mạng LAN<br>
+            • Hỗ trợ: Music, Video, Live stream
+        </div>
     </div>
+
+    <script>
+        const form = document.getElementById('playForm');
+        const urlInput = document.getElementById('urlInput');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+
+        // Check status định kỳ
+        setInterval(updateStatus, 3000);
+        updateStatus();
+
+        async function updateStatus() {
+            try {
+                const res = await fetch('/status');
+                const data = await res.json();
+                
+                if (data.playing) {
+                    status.className = 'status playing';
+                    status.innerHTML = `🎵 Đang phát: ${data.currentSong}`;
+                } else {
+                    status.className = 'status';
+                    status.innerHTML = 'Sẵn sàng phát nhạc';
+                }
+            } catch (e) {
+                console.error('Cannot fetch status', e);
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const url = urlInput.value.trim();
+            if (!url) return;
+
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span class="loading"></span> Đang tải...';
+            status.className = 'status';
+            status.innerHTML = '⏳ Đang xử lý stream...';
+
+            try {
+                const res = await fetch('/play', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await res.json();
+                
+                if (res.ok) {
+                    urlInput.value = '';
+                    setTimeout(updateStatus, 1000);
+                } else {
+                    status.className = 'status';
+                    status.innerHTML = '❌ ' + (data.error || 'Lỗi không xác định');
+                }
+            } catch (error) {
+                status.className = 'status';
+                status.innerHTML = '❌ Lỗi kết nối server';
+            } finally {
+                playBtn.disabled = false;
+                playBtn.innerHTML = '▶️ Phát nhạc';
+            }
+        });
+
+        async function stopMusic() {
+            stopBtn.disabled = true;
+            try {
+                await fetch('/stop', { method: 'POST' });
+                updateStatus();
+            } catch (e) {
+                console.error('Stop error', e);
+            } finally {
+                stopBtn.disabled = false;
+            }
+        }
+    </script>
 </body>
 </html>
