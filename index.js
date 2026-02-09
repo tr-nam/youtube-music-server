@@ -35,7 +35,11 @@ app.post('/play', (req, res) => {
 
     // 2. Chạy MPV mới
     // detached: true để tạo group process riêng, dễ kill sạch sẽ
-    mpvProcess = spawn('mpv', ['--no-video', url], { detached: true });
+    mpvProcess = spawn('mpv', [
+        '--no-video', 
+        '--script-opts=ytdl_hook-ytdl_path=/usr/local/bin/yt-dlp', // <-- THÊM DÒNG NÀY
+        url
+    ], { detached: true });
 
     mpvProcess.stdout.on('data', (data) => console.log(`MPV: ${data}`));
     mpvProcess.stderr.on('data', (data) => console.error(`MPV Error: ${data}`));
