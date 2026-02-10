@@ -61,3 +61,67 @@ sudo apt install -y bluez bluetooth
 
 # Install utilities
 sudo apt install -y socat curl
+```
+### 2. Clone/Create Project
+# Create project directory
+```sh
+mkdir -p ~/youtube-music-server
+cd ~/youtube-music-server
+```
+
+# Create package.json
+```sh
+cat > package.json << 'EOF'
+{
+  "name": "youtube-music-server",
+  "version": "2.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.3.1",
+    "ws": "^8.14.2"
+  }
+}
+EOF
+```
+# Create .env
+```sh
+cat > .env << 'EOF'
+PORT=3000
+EOF
+```
+### 3. Install Node Dependencies
+```sh
+npm install
+```
+### 4. Setup PulseAudio
+# Start PulseAudio
+```sh
+pulseaudio --start
+```
+# Load required modules
+```sh
+pactl load-module module-bluetooth-discover
+pactl load-module module-bluetooth-policy
+```
+# Check PulseAudio is running
+```sh
+pactl info
+```
+
+### 🎮 Usage
+```sh
+# Development mode
+npm start
+
+# Production with PM2
+sudo npm install -g pm2
+pm2 start index.js --name youtube-music
+pm2 save
+pm2 startup
+# Run the command it outputs
+```
