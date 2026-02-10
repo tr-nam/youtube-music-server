@@ -1,3 +1,4 @@
+// index.js
 require('dotenv').config();
 
 const express = require('express');
@@ -7,18 +8,50 @@ const path = require('path');
 const WebSocket = require('ws');
 const http = require('http');
 const net = require('net');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
+const { verifyPassword, requireAuth } = require('./auth');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
 
+// WebSocket with session verification
+const wss = new WebSocket.Server({
+    server,
+    verifyClient: (info, callback) => {
+        // Parse session from cookie
+        const cookies = info.req.headers.cookie;
+        if (!cookies) {
+            return callback(false, 401, 'Unauthorized');
+        }
+        // Allow connection (session will be checked on messages)
+        callback(true);
+    }
+});
+
+// Configuration
 const PORT = process.env.PORT || 3000;
+const SESSION_SECRET = process.env.SESSION_SECRET || 'change-this-secret-key-in-production';
 const MPV_SOCKET = '/tmp/mpv-socket';
+
+// Middleware
+app.use(cookieParser());
+app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        httpOnly: true,
+        secure: false, // Set true if using HTTPS
+        sameSite: 'lax'
+    }
+}));
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.static('public'));
 
+// State variables
 let mpvProcess = null;
 let currentSong = '';
 let currentUrl = '';
@@ -32,7 +65,11 @@ let queue = [];
 let currentQueueIndex = -1;
 let isScanning = false;
 
-// MPV IPC command
+// ==================== Helper Functions ====================
+
+/**
+ * Send command to MPV via IPC socket
+ */
 function mpvCommand(command) {
     return new Promise((resolve, reject) => {
         const client = net.connect(MPV_SOCKET);
@@ -52,6 +89,7 @@ function mpvCommand(command) {
             }
         });
         client.on('error', reject);
+
         setTimeout(() => {
             client.destroy();
             reject(new Error('timeout'));
@@ -59,7 +97,9 @@ function mpvCommand(command) {
     });
 }
 
-// Broadcast
+/**
+ * Broadcast message to all WebSocket clients
+ */
 function broadcast(data) {
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
@@ -68,38 +108,9 @@ function broadcast(data) {
     });
 }
 
-// Update playback info
-async function updatePlaybackInfo() {
-    if (!mpvProcess) return;
-
-    try {
-        const [timePos, duration, paused] = await Promise.all([
-            mpvCommand({ command: ['get_property', 'time-pos'] }),
-            mpvCommand({ command: ['get_property', 'duration'] }),
-            mpvCommand({ command: ['get_property', 'pause'] })
-        ]);
-
-        playbackData.position = timePos.data || 0;
-        playbackData.duration = duration.data || 0;
-        playbackData.paused = paused.data || false;
-
-        broadcast({
-            type: 'update',
-            playing: true,
-            paused: playbackData.paused,
-            currentSong,
-            volume,
-            position: playbackData.position,
-            duration: playbackData.duration,
-            queue,
-            currentQueueIndex
-        });
-    } catch (e) { }
-}
-
-setInterval(updatePlaybackInfo, 500);
-
-// Exec promise helper
+/**
+ * Execute shell command as promise
+ */
 function execPromise(command) {
     return new Promise((resolve, reject) => {
         exec(command, (error, stdout, stderr) => {
@@ -109,7 +120,27 @@ function execPromise(command) {
     });
 }
 
-// Bluetooth helpers
+/**
+ * Kill all MPV processes
+ */
+function killAllMpv() {
+    return new Promise((resolve) => {
+        if (mpvProcess) {
+            try {
+                mpvProcess.kill('SIGKILL');
+            } catch (e) { }
+            mpvProcess = null;
+        }
+
+        exec('pkill -9 mpv', () => {
+            setTimeout(resolve, 200);
+        });
+    });
+}
+
+/**
+ * Get list of paired Bluetooth devices
+ */
 async function getBluetoothDevices() {
     try {
         const output = await execPromise('bluetoothctl devices');
@@ -142,6 +173,9 @@ async function getBluetoothDevices() {
     }
 }
 
+/**
+ * Get list of PulseAudio sinks
+ */
 async function getAudioSinks() {
     try {
         const output = await execPromise('pactl list sinks short');
@@ -162,6 +196,9 @@ async function getAudioSinks() {
     }
 }
 
+/**
+ * Get default audio sink
+ */
 async function getDefaultSink() {
     try {
         const output = await execPromise('pactl info');
@@ -172,30 +209,18 @@ async function getDefaultSink() {
     }
 }
 
-// Helper: Kill all MPV
-function killAllMpv() {
-    return new Promise((resolve) => {
-        if (mpvProcess) {
-            try {
-                mpvProcess.kill('SIGKILL');
-            } catch (e) { }
-            mpvProcess = null;
-        }
+// ==================== Playback Functions ====================
 
-        exec('pkill -9 mpv', () => {
-            setTimeout(resolve, 200);
-        });
-    });
-}
-
-// Play from queue
+/**
+ * Play song from queue at given index
+ */
 async function playFromQueue(index) {
     if (index < 0 || index >= queue.length) return;
 
     const item = queue[index];
-    console.log(`Switching to queue [${index}]: ${item.title}`);
+    console.log(`[Queue] Playing [${index}]: ${item.title}`);
 
-    // IMPORTANT: Stop everything first
+    // Stop all MPV processes first
     await killAllMpv();
 
     currentQueueIndex = index;
@@ -211,24 +236,25 @@ async function playFromQueue(index) {
         currentQueueIndex
     });
 
-    // Get stream
+    // Get stream URL from yt-dlp
     exec(`yt-dlp -f bestaudio --no-playlist --user-agent "Mozilla/5.0" -g "${item.url}"`, async (error, stdout) => {
         if (error) {
-            console.error(`yt-dlp error: ${error.message}`);
+            console.error(`[yt-dlp] Error: ${error.message}`);
             playNext();
             return;
         }
 
         const streamUrl = stdout.trim();
         if (!streamUrl) {
+            console.error('[yt-dlp] Empty stream URL');
             playNext();
             return;
         }
 
-        // Safety: kill again before spawn
+        // Safety: kill again before spawning new process
         await killAllMpv();
 
-        console.log('Starting MPV...');
+        console.log('[MPV] Starting playback...');
 
         mpvProcess = spawn('mpv', [
             '--no-video',
@@ -240,23 +266,27 @@ async function playFromQueue(index) {
         ]);
 
         mpvProcess.on('close', (code) => {
-            console.log(`Track ended (${code})`);
+            console.log(`[MPV] Track ended (code: ${code})`);
             mpvProcess = null;
             playNext();
         });
 
         mpvProcess.on('error', (err) => {
-            console.error(`MPV error: ${err.message}`);
+            console.error(`[MPV] Error: ${err.message}`);
             mpvProcess = null;
             playNext();
         });
     });
 }
 
+/**
+ * Play next song in queue
+ */
 function playNext() {
     if (currentQueueIndex < queue.length - 1) {
         playFromQueue(currentQueueIndex + 1);
     } else {
+        console.log('[Queue] End of queue');
         currentSong = '';
         currentQueueIndex = -1;
         killAllMpv();
@@ -264,19 +294,101 @@ function playNext() {
     }
 }
 
+/**
+ * Play previous song in queue
+ */
 function playPrevious() {
     if (currentQueueIndex > 0) {
         playFromQueue(currentQueueIndex - 1);
     }
 }
 
+// ==================== Background Tasks ====================
 
-// Routes
+/**
+ * Update playback info periodically
+ */
+async function updatePlaybackInfo() {
+    if (!mpvProcess) return;
+
+    try {
+        const [timePos, duration, paused] = await Promise.all([
+            mpvCommand({ command: ['get_property', 'time-pos'] }),
+            mpvCommand({ command: ['get_property', 'duration'] }),
+            mpvCommand({ command: ['get_property', 'pause'] })
+        ]);
+
+        playbackData.position = timePos.data || 0;
+        playbackData.duration = duration.data || 0;
+        playbackData.paused = paused.data || false;
+
+        broadcast({
+            type: 'update',
+            playing: true,
+            paused: playbackData.paused,
+            currentSong,
+            volume,
+            position: playbackData.position,
+            duration: playbackData.duration,
+            queue,
+            currentQueueIndex
+        });
+    } catch (e) {
+        // Socket not ready or MPV not responding
+    }
+}
+
+setInterval(updatePlaybackInfo, 500);
+
+// ==================== Authentication Routes ====================
+
+app.get('/login', (req, res) => {
+    if (req.session && req.session.authenticated) {
+        return res.redirect('/');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+
+    if (verifyPassword(username, password)) {
+        req.session.authenticated = true;
+        req.session.username = username;
+        console.log(`[Auth] User logged in: ${username}`);
+        res.json({ success: true });
+    } else {
+        console.log(`[Auth] Failed login attempt: ${username}`);
+        res.status(401).json({ error: 'Invalid credentials' });
+    }
+});
+
+app.post('/logout', (req, res) => {
+    const username = req.session?.username;
+    req.session.destroy();
+    console.log(`[Auth] User logged out: ${username}`);
+    res.json({ success: true });
+});
+
+app.get('/auth/status', (req, res) => {
+    res.json({
+        authenticated: req.session && req.session.authenticated,
+        username: req.session?.username || null
+    });
+});
+
+// ==================== Protected Routes ====================
+
+// Main page (protected)
 app.get('/', (req, res) => {
+    if (!req.session || !req.session.authenticated) {
+        return res.redirect('/login');
+    }
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/status', (req, res) => {
+// Status endpoint
+app.get('/status', requireAuth, (req, res) => {
     res.json({
         playing: mpvProcess !== null,
         paused: playbackData.paused,
@@ -289,17 +401,18 @@ app.get('/status', (req, res) => {
     });
 });
 
-// Queue routes
-app.post('/queue/add', async (req, res) => {
+// ==================== Queue Routes ====================
+
+app.post('/queue/add', requireAuth, async (req, res) => {
     const { url } = req.body;
 
     if (!url) {
         return res.status(400).json({ error: 'URL required' });
     }
 
-    console.log(`Adding to queue: ${url}`);
+    console.log(`[Queue] Adding: ${url}`);
 
-    // Get title async
+    // Get title asynchronously
     exec(`yt-dlp --no-playlist --print "%(title)s" "${url}"`, (err, title) => {
         const item = {
             id: Date.now(),
@@ -308,10 +421,9 @@ app.post('/queue/add', async (req, res) => {
         };
 
         queue.push(item);
+        console.log(`[Queue] Added: ${item.title}`);
 
-        console.log(`Added: ${item.title}`);
-
-        // Start playing if nothing is playing
+        // Auto-play if nothing is playing
         if (!mpvProcess) {
             playFromQueue(queue.length - 1);
         }
@@ -322,7 +434,7 @@ app.post('/queue/add', async (req, res) => {
     res.json({ success: true, message: 'Added to queue' });
 });
 
-app.post('/queue/remove', (req, res) => {
+app.post('/queue/remove', requireAuth, (req, res) => {
     const { id } = req.body;
 
     const index = queue.findIndex(item => item.id === id);
@@ -330,7 +442,7 @@ app.post('/queue/remove', (req, res) => {
         return res.status(404).json({ error: 'Item not found' });
     }
 
-    // If removing current song
+    // Handle if removing current song
     if (index === currentQueueIndex) {
         playNext();
     } else if (index < currentQueueIndex) {
@@ -338,28 +450,25 @@ app.post('/queue/remove', (req, res) => {
     }
 
     queue.splice(index, 1);
+    console.log(`[Queue] Removed item at index ${index}`);
 
     res.json({ success: true, queue });
     broadcast({ type: 'queue_updated', queue, currentQueueIndex });
 });
 
-app.post('/queue/clear', (req, res) => {
-    if (mpvProcess) {
-        try {
-            mpvProcess.kill('SIGKILL');
-        } catch (e) { }
-        mpvProcess = null;
-    }
-
+app.post('/queue/clear', requireAuth, (req, res) => {
+    killAllMpv();
     queue = [];
     currentQueueIndex = -1;
     currentSong = '';
+
+    console.log('[Queue] Cleared');
 
     res.json({ success: true });
     broadcast({ type: 'queue_cleared' });
 });
 
-app.post('/queue/play', (req, res) => {
+app.post('/queue/play', requireAuth, (req, res) => {
     const { index } = req.body;
 
     if (index < 0 || index >= queue.length) {
@@ -370,18 +479,19 @@ app.post('/queue/play', (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/queue/next', (req, res) => {
+app.post('/queue/next', requireAuth, (req, res) => {
     playNext();
     res.json({ success: true });
 });
 
-app.post('/queue/previous', (req, res) => {
+app.post('/queue/previous', requireAuth, (req, res) => {
     playPrevious();
     res.json({ success: true });
 });
 
-// Bluetooth routes
-app.get('/bluetooth/devices', async (req, res) => {
+// ==================== Bluetooth Routes ====================
+
+app.get('/bluetooth/devices', requireAuth, async (req, res) => {
     try {
         const devices = await getBluetoothDevices();
         res.json({ devices, scanning: isScanning });
@@ -390,23 +500,23 @@ app.get('/bluetooth/devices', async (req, res) => {
     }
 });
 
-app.post('/bluetooth/scan', async (req, res) => {
+app.post('/bluetooth/scan', requireAuth, async (req, res) => {
     try {
         isScanning = true;
         broadcast({ type: 'bluetooth_scanning', scanning: true });
 
-        // Start scan
+        console.log('[Bluetooth] Starting scan...');
         exec('bluetoothctl scan on');
 
         res.json({ success: true, message: 'Scanning for 10 seconds...' });
 
-        // Stop after 10s
+        // Stop after 10 seconds
         setTimeout(async () => {
             exec('bluetoothctl scan off');
             isScanning = false;
+            console.log('[Bluetooth] Scan complete');
             broadcast({ type: 'bluetooth_scanning', scanning: false });
 
-            // Get updated devices
             const devices = await getBluetoothDevices();
             broadcast({ type: 'bluetooth_devices', devices });
         }, 10000);
@@ -416,7 +526,7 @@ app.post('/bluetooth/scan', async (req, res) => {
     }
 });
 
-app.post('/bluetooth/connect', async (req, res) => {
+app.post('/bluetooth/connect', requireAuth, async (req, res) => {
     const { mac } = req.body;
 
     if (!mac) {
@@ -424,19 +534,20 @@ app.post('/bluetooth/connect', async (req, res) => {
     }
 
     try {
-        console.log(`Connecting to ${mac}...`);
+        console.log(`[Bluetooth] Connecting to ${mac}...`);
         await execPromise(`bluetoothctl connect ${mac}`);
-
         await new Promise(resolve => setTimeout(resolve, 3000));
 
+        console.log(`[Bluetooth] Connected to ${mac}`);
         res.json({ success: true });
         broadcast({ type: 'bluetooth_connected', mac });
     } catch (error) {
+        console.error(`[Bluetooth] Connection failed: ${error.message}`);
         res.status(500).json({ error: 'Connection failed' });
     }
 });
 
-app.post('/bluetooth/disconnect', async (req, res) => {
+app.post('/bluetooth/disconnect', requireAuth, async (req, res) => {
     const { mac } = req.body;
 
     if (!mac) {
@@ -444,7 +555,9 @@ app.post('/bluetooth/disconnect', async (req, res) => {
     }
 
     try {
+        console.log(`[Bluetooth] Disconnecting ${mac}...`);
         await execPromise(`bluetoothctl disconnect ${mac}`);
+        console.log(`[Bluetooth] Disconnected ${mac}`);
         res.json({ success: true });
         broadcast({ type: 'bluetooth_disconnected', mac });
     } catch (error) {
@@ -452,8 +565,9 @@ app.post('/bluetooth/disconnect', async (req, res) => {
     }
 });
 
-// Audio routes
-app.get('/audio/sinks', async (req, res) => {
+// ==================== Audio Routes ====================
+
+app.get('/audio/sinks', requireAuth, async (req, res) => {
     try {
         const sinks = await getAudioSinks();
         const defaultSink = await getDefaultSink();
@@ -463,7 +577,7 @@ app.get('/audio/sinks', async (req, res) => {
     }
 });
 
-app.post('/audio/set-sink', async (req, res) => {
+app.post('/audio/set-sink', requireAuth, async (req, res) => {
     const { sink } = req.body;
 
     if (!sink) {
@@ -472,6 +586,7 @@ app.post('/audio/set-sink', async (req, res) => {
 
     try {
         await execPromise(`pactl set-default-sink ${sink}`);
+        console.log(`[Audio] Switched to sink: ${sink}`);
         res.json({ success: true });
         broadcast({ type: 'sink_changed', sink });
     } catch (error) {
@@ -479,11 +594,13 @@ app.post('/audio/set-sink', async (req, res) => {
     }
 });
 
-// Playback control
-app.post('/pause', async (req, res) => {
+// ==================== Playback Control Routes ====================
+
+app.post('/pause', requireAuth, async (req, res) => {
     try {
         await mpvCommand({ command: ['cycle', 'pause'] });
         playbackData.paused = !playbackData.paused;
+        console.log(`[Playback] ${playbackData.paused ? 'Paused' : 'Resumed'}`);
         res.json({ success: true, paused: playbackData.paused });
         broadcast({ type: 'paused', paused: playbackData.paused });
     } catch (error) {
@@ -491,30 +608,26 @@ app.post('/pause', async (req, res) => {
     }
 });
 
-app.post('/stop', (req, res) => {
-    if (mpvProcess) {
-        try {
-            mpvProcess.kill('SIGKILL');
-        } catch (e) { }
-        mpvProcess = null;
-    }
-
+app.post('/stop', requireAuth, (req, res) => {
+    killAllMpv();
     currentSong = '';
     currentQueueIndex = -1;
     playbackData = { duration: 0, position: 0, paused: false };
 
+    console.log('[Playback] Stopped');
     res.json({ success: true });
     broadcast({ type: 'stopped' });
 });
 
-app.post('/volume', async (req, res) => {
+app.post('/volume', requireAuth, async (req, res) => {
     const newVolume = parseInt(req.body.volume);
 
     if (isNaN(newVolume) || newVolume < 0 || newVolume > 100) {
-        return res.status(400).json({ error: 'Invalid volume' });
+        return res.status(400).json({ error: 'Invalid volume (0-100)' });
     }
 
     volume = newVolume;
+    console.log(`[Volume] Set to ${volume}%`);
 
     try {
         await mpvCommand({ command: ['set_property', 'volume', volume] });
@@ -526,14 +639,16 @@ app.post('/volume', async (req, res) => {
     broadcast({ type: 'volume', volume });
 });
 
-app.post('/seek', async (req, res) => {
+app.post('/seek', requireAuth, async (req, res) => {
     const { position, relative } = req.body;
 
     try {
         if (relative) {
             await mpvCommand({ command: ['seek', position, 'relative'] });
+            console.log(`[Seek] ${position > 0 ? '+' : ''}${position}s`);
         } else {
             await mpvCommand({ command: ['seek', position, 'absolute'] });
+            console.log(`[Seek] To ${position}s`);
         }
         res.json({ success: true });
     } catch (error) {
@@ -541,9 +656,11 @@ app.post('/seek', async (req, res) => {
     }
 });
 
-// WebSocket
+// ==================== WebSocket ====================
+
 wss.on('connection', (ws) => {
-    console.log('Client connected');
+    console.log('[WebSocket] Client connected');
+
     ws.send(JSON.stringify({
         type: 'init',
         playing: mpvProcess !== null,
@@ -555,8 +672,18 @@ wss.on('connection', (ws) => {
         queue,
         currentQueueIndex
     }));
+
+    ws.on('close', () => {
+        console.log('[WebSocket] Client disconnected');
+    });
 });
 
+// ==================== Start Server ====================
+
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🎵 Server: http://0.0.0.0:${PORT}`);
+    console.log('\n🎵 YouTube Music Server');
+    console.log('======================');
+    console.log(`Server: http://0.0.0.0:${PORT}`);
+    console.log(`Login: admin / admin123`);
+    console.log('======================\n');
 });
