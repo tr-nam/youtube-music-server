@@ -4,7 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🎵 YouTube Music</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Music</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
     <style>
         * {
             margin: 0;
@@ -13,107 +19,309 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        :root {
+            --primary: #3b82f6;
+            --primary-light: #60a5fa;
+            --primary-dark: #2563eb;
+            --accent: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-hover: rgba(255, 255, 255, 0.12);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
             min-height: 100vh;
-            padding: 10px;
+            padding: 20px;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated Background Pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+            animation: morphBackground 20s ease-in-out infinite;
+        }
+
+        @keyframes morphBackground {
+
+            0%,
+            100% {
+                background-image:
+                    radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.12) 0%, transparent 50%);
+            }
+
+            50% {
+                background-image:
+                    radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 30% 80%, rgba(139, 92, 246, 0.12) 0%, transparent 50%);
+            }
+        }
+
+        /* Noise Texture */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
-            max-width: 700px;
+            max-width: 680px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1;
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
+        /* Glass Card Effect - FIXED: Bỏ animation */
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--glass-border);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            /* REMOVED: animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); */
+        }
+
+        .card:hover {
+            background: var(--glass-hover);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Header */
+        .header {
             text-align: center;
-            font-size: 24px;
+            margin-top: 28px;
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 8px;
         }
 
-        .now-playing {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-        }
-
-        .now-playing h2 {
-            font-size: 14px;
-            margin-bottom: 8px;
-            opacity: 0.9;
+        .header-title {
             display: flex;
             align-items: center;
+            gap: 12px;
+        }
+
+        .header-title i {
+            font-size: 32px;
+            color: var(--primary-light);
+            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .logout-btn {
+            padding: 10px 18px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logout-btn:hover {
+            background: var(--glass-hover);
+            transform: scale(1.05);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: var(--danger);
+        }
+
+        /* Now Playing Card */
+        .now-playing {
+            background: linear-gradient(135deg,
+                    rgba(59, 130, 246, 0.15) 0%,
+                    rgba(139, 92, 246, 0.12) 100%);
+            backdrop-filter: blur(30px) saturate(200%);
+            -webkit-backdrop-filter: blur(30px) saturate(200%);
+            color: var(--text-primary);
+            padding: 32px;
+            border-radius: 28px;
+            margin-bottom: 20px;
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .now-playing::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .now-playing>* {
+            position: relative;
+            z-index: 1;
+        }
+
+        .now-playing-header {
+            display: flex;
             justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .now-playing-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .status-badge {
             font-size: 11px;
-            padding: 4px 10px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--glass-border);
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .status-badge i {
+            font-size: 10px;
         }
 
         .status-badge.playing {
-            background: #4ade80;
-            color: #065f46;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(5, 150, 105, 0.3));
+            border-color: var(--success);
+            color: #6ee7b7;
         }
 
         .status-badge.paused {
-            background: #fbbf24;
-            color: #78350f;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.3));
+            border-color: var(--warning);
+            color: #fcd34d;
         }
 
-        .title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            min-height: 50px;
+        .song-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 28px;
+            min-height: 64px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            line-height: 1.3;
+            letter-spacing: -0.5px;
         }
 
+        /* Timeline */
         .timeline-container {
-            margin-bottom: 15px;
+            margin-bottom: 16px;
         }
 
         .timeline {
             position: relative;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
             cursor: pointer;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
         }
 
         .timeline-fill {
             position: absolute;
             height: 100%;
-            background: white;
-            border-radius: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 10px;
             width: 0%;
             transition: width 0.1s linear;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
         }
 
         .timeline-handle {
             position: absolute;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             background: white;
             border-radius: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
             opacity: 0;
             transition: opacity 0.2s;
+            border: 2px solid var(--primary);
         }
 
         .timeline:hover .timeline-handle,
@@ -121,128 +329,215 @@
             opacity: 1;
         }
 
-        .time {
+        .time-display {
             display: flex;
             justify-content: space-between;
             font-size: 12px;
-            opacity: 0.9;
+            font-weight: 600;
+            opacity: 0.7;
+            font-variant-numeric: tabular-nums;
         }
 
+        /* Controls */
         .controls {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-            margin-bottom: 15px;
+            gap: 12px;
+            margin-bottom: 16px;
         }
 
         .control-btn {
-            padding: 16px 8px;
+            aspect-ratio: 1;
             border: none;
-            border-radius: 12px;
-            background: #f0f0f0;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
             cursor: pointer;
             font-size: 20px;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             touch-action: manipulation;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+        }
+
+        .control-btn:hover {
+            background: var(--glass-hover);
+            transform: scale(1.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.25);
         }
 
         .control-btn:active {
             transform: scale(0.95);
-            background: #e0e0e0;
         }
 
         .control-btn.primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             color: white;
             font-size: 24px;
+            box-shadow:
+                0 8px 24px rgba(59, 130, 246, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
+        .control-btn.primary:hover {
+            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            transform: scale(1.15);
+            box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Volume Control */
         .volume-control {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 15px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 12px;
+            gap: 16px;
+            padding: 20px 24px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s;
         }
 
-        .volume-control span {
+        .volume-control:hover {
+            background: var(--glass-hover);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .volume-icon {
             font-size: 20px;
+            color: var(--primary-light);
         }
 
         .volume-value {
-            font-weight: bold;
-            min-width: 40px;
+            font-weight: 700;
+            min-width: 48px;
             text-align: right;
-            font-size: 14px;
+            font-size: 15px;
+            font-variant-numeric: tabular-nums;
+            color: var(--primary-light);
         }
 
         input[type="range"] {
             flex: 1;
             height: 6px;
-            border-radius: 3px;
+            border-radius: 10px;
             outline: none;
-            background: #ddd;
+            background: rgba(255, 255, 255, 0.1);
             -webkit-appearance: none;
+            appearance: none;
         }
 
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            background: #667eea;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+            transition: all 0.2s;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.7);
         }
 
         input[type="range"]::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            background: #667eea;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             cursor: pointer;
-            border: none;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
         }
 
-        .add-section {
-            margin-bottom: 20px;
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
         }
 
-        .add-section h3 {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 10px;
+        .section-title {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
         }
 
+        .section-title i {
+            color: var(--primary-light);
+        }
+
+        /* Input Group */
         .input-group {
             display: flex;
-            gap: 8px;
+            gap: 10px;
         }
 
         input[type="text"] {
             flex: 1;
-            padding: 14px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
+            padding: 16px 20px;
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
             font-size: 15px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+            color: var(--text-primary);
         }
 
         input[type="text"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary);
+            background: var(--glass-hover);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
 
+        input[type="text"]::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Buttons */
         .btn {
-            padding: 14px 24px;
+            padding: 16px 28px;
             border: none;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             color: white;
-            font-weight: bold;
+            font-weight: 600;
             font-size: 15px;
             cursor: pointer;
             white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
         }
 
         .btn:active {
@@ -250,69 +545,97 @@
         }
 
         .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
+            background: var(--glass-bg);
+            color: var(--text-primary);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--glass-hover);
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .btn-danger {
-            background: #ef4444;
-            color: white;
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
         }
 
-        .queue-section {
-            margin-bottom: 20px;
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
         }
 
-        .queue-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .queue-header h3 {
-            font-size: 16px;
-            color: #333;
-        }
-
-        .queue-list {
-            max-height: 300px;
-            overflow-y: auto;
-            background: #f8f9fa;
+        .btn-sm {
+            padding: 10px 18px;
+            font-size: 13px;
             border-radius: 12px;
-            padding: 10px;
+        }
+
+        /* Queue - FIXED: Bỏ animation */
+        .queue-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin: -8px;
+            padding: 8px;
+        }
+
+        .queue-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .queue-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .queue-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        .queue-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
         }
 
         .queue-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px;
-            background: white;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            border: 2px solid transparent;
+            gap: 14px;
+            padding: 14px 18px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            margin-bottom: 10px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--glass-border);
+            /* REMOVED: animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); */
         }
 
         .queue-item:hover {
-            border-color: #e0e0e0;
+            background: var(--glass-hover);
+            transform: translateX(4px);
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .queue-item.active {
-            border-color: #667eea;
-            background: #f0f4ff;
+            background: linear-gradient(135deg,
+                    rgba(59, 130, 246, 0.2),
+                    rgba(139, 92, 246, 0.15));
+            border-color: var(--primary);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
         }
 
         .queue-index {
-            font-weight: bold;
-            color: #666;
-            min-width: 25px;
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text-secondary);
+            min-width: 32px;
+            text-align: center;
         }
 
         .queue-item.active .queue-index {
-            color: #667eea;
+            color: var(--primary-light);
         }
 
         .queue-info {
@@ -322,7 +645,8 @@
 
         .queue-title {
             font-weight: 600;
-            color: #333;
+            font-size: 14px;
+            color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -330,72 +654,79 @@
 
         .queue-actions {
             display: flex;
-            gap: 5px;
+            gap: 6px;
         }
 
         .btn-icon {
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             padding: 0;
             border: none;
-            border-radius: 8px;
-            background: #ef4444;
-            color: white;
+            border-radius: 10px;
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
             cursor: pointer;
-            font-size: 16px;
-        }
-
-        .empty-queue {
-            text-align: center;
-            padding: 40px 20px;
-            color: #666;
-        }
-
-        .bluetooth-section,
-        .audio-section {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 15px;
-        }
-
-        .section-header {
+            font-size: 15px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            justify-content: center;
+            transition: all 0.2s;
+            border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        .section-header h3 {
-            font-size: 16px;
-            color: #333;
+        .btn-icon:hover {
+            background: var(--danger);
+            color: white;
+            transform: scale(1.1);
         }
 
-        .bluetooth-devices,
-        .audio-sinks {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        .btn-icon:active {
+            transform: scale(0.95);
         }
 
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+
+        /* Device Items - FIXED: Bỏ animation */
         .device-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px;
-            background: white;
-            border-radius: 10px;
-            border: 2px solid transparent;
+            padding: 14px 18px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            margin-bottom: 10px;
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s;
+            /* REMOVED: animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); */
+        }
+
+        .device-item:hover {
+            background: var(--glass-hover);
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .device-item.connected {
-            border-color: #4ade80;
-            background: #f0fdf4;
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
         }
 
         .device-item.active {
-            border-color: #667eea;
-            background: #f0f4ff;
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
         }
 
         .device-info {
@@ -404,48 +735,52 @@
         }
 
         .device-name {
-            font-weight: bold;
-            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
             margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .device-mac,
-        .device-type {
+        .device-name i {
+            color: var(--primary-light);
+        }
+
+        .device-meta {
             font-size: 12px;
-            color: #666;
-        }
-
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 13px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
+            color: var(--text-muted);
         }
 
         .btn-connect {
-            background: #4ade80;
-            color: white;
+            background: linear-gradient(135deg, var(--success), #059669);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-connect:hover {
+            background: linear-gradient(135deg, #059669, #047857);
         }
 
         .btn-disconnect {
-            background: #ef4444;
-            color: white;
+            background: linear-gradient(135deg, var(--danger), #dc2626);
         }
 
         .btn-select {
-            background: #667eea;
-            color: white;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
         }
 
         .btn-scan {
-            background: #3b82f6;
-            color: white;
+            background: linear-gradient(135deg, var(--accent), #7c3aed);
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-scan:hover {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
         }
 
         .btn-scan.scanning {
-            background: #fbbf24;
+            background: linear-gradient(135deg, var(--warning), #d97706);
             animation: pulse 1.5s infinite;
         }
 
@@ -457,72 +792,119 @@
             }
 
             50% {
-                opacity: 0.6;
+                opacity: 0.7;
             }
         }
 
         .loading {
             text-align: center;
-            padding: 20px;
-            color: #666;
+            padding: 32px;
+            color: var(--text-secondary);
             font-size: 14px;
         }
 
+        .active-badge {
+            color: var(--primary-light);
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Mobile Optimizations */
         @media (max-width: 600px) {
             body {
                 padding: 0;
             }
 
             .container {
-                border-radius: 0;
-                min-height: 100vh;
-                padding: 15px;
+                max-width: 100%;
             }
 
-            h1 {
+            .card {
+                border-radius: 0;
+                margin-bottom: 1px;
+                border-left: none;
+                border-right: none;
+            }
+
+            .now-playing {
+                border-radius: 0 0 28px 28px;
+                margin-bottom: 16px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .song-title {
                 font-size: 20px;
             }
 
             .controls {
-                gap: 6px;
-            }
-
-            .control-btn {
-                padding: 14px 6px;
-                font-size: 18px;
-            }
-
-            .device-item {
-                flex-direction: column;
-                align-items: flex-start;
                 gap: 10px;
             }
 
-            .btn-sm {
-                width: 100%;
+            .control-btn {
+                font-size: 18px;
             }
+
+            .control-btn.primary {
+                font-size: 24px;
+            }
+        }
+
+        /* Glow Effect on Hover */
+        .card:hover {
+            box-shadow:
+                var(--shadow-lg),
+                0 0 40px rgba(59, 130, 246, 0.1);
+        }
+
+        .now-playing:hover {
+            box-shadow:
+                0 24px 80px rgba(0, 0, 0, 0.5),
+                0 0 60px rgba(59, 130, 246, 0.2),
+                inset 0 1px 1px rgba(255, 255, 255, 0.15);
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>🎵 YouTube Music</h1>
+        <!-- Header -->
+        <div class="header">
+            <div class="header-title">
+                <i class="fas fa-music"></i>
+                <h1>Music</h1>
+            </div>
+            <button class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </button>
+        </div>
 
         <!-- Now Playing -->
         <div class="now-playing">
-            <h2>
-                Now Playing
-                <span class="status-badge" id="statusBadge">Stopped</span>
-            </h2>
-            <div class="title" id="songTitle">No song playing</div>
+            <div class="now-playing-header">
+                <div class="now-playing-label">
+                    <i class="fas fa-play-circle"></i>
+                    Now Playing
+                </div>
+                <span class="status-badge" id="statusBadge">
+                    <i class="fas fa-stop-circle"></i>
+                    Stopped
+                </span>
+            </div>
+            <div class="song-title" id="songTitle">No song playing</div>
 
             <div class="timeline-container">
                 <div class="timeline" id="timeline">
                     <div class="timeline-fill" id="timelineFill"></div>
                     <div class="timeline-handle" id="timelineHandle"></div>
                 </div>
-                <div class="time">
+                <div class="time-display">
                     <span id="currentTime">0:00</span>
                     <span id="duration">0:00</span>
                 </div>
@@ -530,64 +912,102 @@
         </div>
 
         <!-- Controls -->
-        <div class="controls">
-            <button class="control-btn" onclick="playPrevious()">⏮️</button>
-            <button class="control-btn" onclick="seek(-10)">⏪</button>
-            <button class="control-btn primary" onclick="togglePause()" id="pauseBtn">▶️</button>
-            <button class="control-btn" onclick="seek(10)">⏩</button>
-            <button class="control-btn" onclick="playNext()">⏭️</button>
+        <div class="now-playing">
+            <div class="controls">
+                <button class="control-btn" onclick="playPrevious()">
+                    <i class="fas fa-backward-step"></i>
+                </button>
+                <button class="control-btn" onclick="seek(-10)">
+                    <i class="fas fa-rotate-left"></i>
+                </button>
+                <button class="control-btn primary" onclick="togglePause()" id="pauseBtn">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="control-btn" onclick="seek(10)">
+                    <i class="fas fa-rotate-right"></i>
+                </button>
+                <button class="control-btn" onclick="playNext()">
+                    <i class="fas fa-forward-step"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Volume -->
         <div class="volume-control">
-            <span>🔊</span>
+            <i class="fas fa-volume-high volume-icon"></i>
             <input type="range" id="volumeSlider" min="0" max="100" value="100" oninput="updateVolume(this.value)">
             <span class="volume-value" id="volumeValue">100%</span>
         </div>
 
         <!-- Add to Queue -->
-        <div class="add-section">
-            <h3>➕ Add to Queue</h3>
+        <div class="card">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="fas fa-plus-circle"></i>
+                    Add to Queue
+                </h3>
+            </div>
             <div class="input-group">
-                <input type="text" id="urlInput" placeholder="Paste YouTube link here...">
-                <button class="btn" onclick="addToQueue()">Add</button>
+                <input type="text" id="urlInput" placeholder="Paste YouTube URL...">
+                <button class="btn" onclick="addToQueue()">
+                    <i class="fas fa-plus"></i>
+                    Add
+                </button>
             </div>
         </div>
 
         <!-- Queue -->
-        <div class="queue-section">
-            <div class="queue-header">
-                <h3>📋 Queue (<span id="queueCount">0</span>)</h3>
-                <button class="btn btn-danger btn-sm" onclick="clearQueue()">Clear All</button>
+        <div class="card">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="fas fa-list-music"></i>
+                    Queue (<span id="queueCount">0</span>)
+                </h3>
+                <button class="btn btn-danger btn-sm" onclick="clearQueue()">
+                    <i class="fas fa-trash"></i>
+                    Clear All
+                </button>
             </div>
             <div class="queue-list" id="queueList">
-                <div class="empty-queue">
-                    Queue is empty. Add songs above!
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i class="fas fa-music"></i></div>
+                    <div>Queue is empty<br>Add songs to get started</div>
                 </div>
             </div>
         </div>
 
         <!-- Bluetooth -->
-        <div class="bluetooth-section">
+        <div class="card">
             <div class="section-header">
-                <h3>📶 Bluetooth Devices</h3>
+                <h3 class="section-title">
+                    <i class="fab fa-bluetooth"></i>
+                    Bluetooth Devices
+                </h3>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-scan btn-sm" id="scanBtn" onclick="scanBluetooth()">🔍 Scan</button>
-                    <button class="btn btn-secondary btn-sm" onclick="refreshBluetooth()">🔄</button>
+                    <button class="btn btn-scan btn-sm" id="scanBtn" onclick="scanBluetooth()">
+                        <i class="fas fa-magnifying-glass"></i>
+                        Scan
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="refreshBluetooth()">
+                        <i class="fas fa-rotate"></i>
+                    </button>
                 </div>
             </div>
-            <div class="bluetooth-devices" id="bluetoothDevices">
-                <div class="loading">Loading...</div>
+            <div id="bluetoothDevices">
+                <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading devices...</div>
             </div>
         </div>
 
         <!-- Audio Output -->
-        <div class="audio-section">
+        <div class="card">
             <div class="section-header">
-                <h3>🔊 Audio Output</h3>
+                <h3 class="section-title">
+                    <i class="fas fa-headphones"></i>
+                    Audio Output
+                </h3>
             </div>
-            <div class="audio-sinks" id="audioSinks">
-                <div class="loading">Loading...</div>
+            <div id="audioSinks">
+                <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading audio devices...</div>
             </div>
         </div>
     </div>
@@ -602,22 +1022,13 @@
         // WebSocket
         function connectWebSocket() {
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const hostname = location.hostname;
-            const port = location.port ? `:${location.port}` : '';
-            const wsUrl = `${protocol}//${hostname}${port}`;
-
-            console.log('🔌 Connecting:', wsUrl);
+            const wsUrl = `${protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
 
             try {
                 ws = new WebSocket(wsUrl);
-
-                ws.onopen = () => {
-                    console.log('✅ WebSocket connected');
-                };
-
+                ws.onopen = () => console.log('✅ Connected');
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-
                     if (data.type === 'update' || data.type === 'init') {
                         updateUI(data);
                     } else if (data.type === 'queue_updated' || data.type === 'queue_playing') {
@@ -626,16 +1037,7 @@
                         loadBluetoothDevices();
                     }
                 };
-
-                ws.onerror = (error) => {
-                    console.error('❌ WebSocket error');
-                };
-
-                ws.onclose = () => {
-                    console.log('WebSocket closed');
-                    setTimeout(connectWebSocket, 3000);
-                };
-
+                ws.onclose = () => setTimeout(connectWebSocket, 3000);
             } catch (error) {
                 console.error('Connection failed:', error);
             }
@@ -645,40 +1047,35 @@
             const songTitle = document.getElementById('songTitle');
             const statusBadge = document.getElementById('statusBadge');
             const pauseBtn = document.getElementById('pauseBtn');
-            const timelineFill = document.getElementById('timelineFill');
-            const timelineHandle = document.getElementById('timelineHandle');
-            const currentTime = document.getElementById('currentTime');
-            const durationEl = document.getElementById('duration');
 
             if (data.playing) {
                 songTitle.textContent = data.currentSong || 'Loading...';
 
                 if (data.paused) {
-                    statusBadge.textContent = 'Paused';
+                    statusBadge.innerHTML = '<i class="fas fa-pause-circle"></i> Paused';
                     statusBadge.className = 'status-badge paused';
-                    pauseBtn.textContent = '▶️';
+                    pauseBtn.innerHTML = '<i class="fas fa-play"></i>';
                 } else {
-                    statusBadge.textContent = 'Playing';
+                    statusBadge.innerHTML = '<i class="fas fa-play-circle"></i> Playing';
                     statusBadge.className = 'status-badge playing';
-                    pauseBtn.textContent = '⏸️';
+                    pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
                 }
 
                 if (data.duration > 0 && !isDragging) {
                     currentDuration = data.duration;
                     const progress = (data.position / data.duration) * 100;
-                    timelineFill.style.width = progress + '%';
-                    timelineHandle.style.left = progress + '%';
-                    currentTime.textContent = formatTime(data.position);
-                    durationEl.textContent = formatTime(data.duration);
+                    document.getElementById('timelineFill').style.width = progress + '%';
+                    document.getElementById('timelineHandle').style.left = progress + '%';
+                    document.getElementById('currentTime').textContent = formatTime(data.position);
+                    document.getElementById('duration').textContent = formatTime(data.duration);
                 }
             } else {
                 songTitle.textContent = 'No song playing';
-                statusBadge.textContent = 'Stopped';
+                statusBadge.innerHTML = '<i class="fas fa-stop-circle"></i> Stopped';
                 statusBadge.className = 'status-badge';
-                timelineFill.style.width = '0%';
-                timelineHandle.style.left = '0%';
-                currentTime.textContent = '0:00';
-                durationEl.textContent = '0:00';
+                document.getElementById('timelineFill').style.width = '0%';
+                document.getElementById('currentTime').textContent = '0:00';
+                document.getElementById('duration').textContent = '0:00';
             }
 
             if (data.volume !== undefined) {
@@ -691,31 +1088,41 @@
             }
         }
 
+        // FIXED: Optimized updateQueue - chỉ update khi có thay đổi
         function updateQueue(newQueue, newIndex) {
             queue = newQueue || [];
             currentQueueIndex = newIndex !== undefined ? newIndex : -1;
+            document.getElementById('queueCount').textContent = queue.length;
 
             const queueList = document.getElementById('queueList');
-            const queueCount = document.getElementById('queueCount');
-
-            queueCount.textContent = queue.length;
 
             if (queue.length === 0) {
-                queueList.innerHTML = '<div class="empty-queue">Queue is empty. Add songs above!</div>';
+                const emptyHTML = '<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-music"></i></div><div>Queue is empty<br>Add songs to get started</div></div>';
+                if (queueList.innerHTML !== emptyHTML) {
+                    queueList.innerHTML = emptyHTML;
+                }
                 return;
             }
 
-            queueList.innerHTML = queue.map((item, index) => `
+            // Tạo HTML mới
+            const newHTML = queue.map((item, index) => `
                 <div class="queue-item ${index === currentQueueIndex ? 'active' : ''}" onclick="playQueueItem(${index})">
-                    <div class="queue-index">${index === currentQueueIndex ? '▶️' : (index + 1)}</div>
+                    <div class="queue-index">${index === currentQueueIndex ? '<i class="fas fa-play"></i>' : (index + 1)}</div>
                     <div class="queue-info">
                         <div class="queue-title">${item.title}</div>
                     </div>
                     <div class="queue-actions">
-                        <button class="btn-icon" onclick="event.stopPropagation(); removeFromQueue(${item.id})">🗑️</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); removeFromQueue(${item.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 </div>
             `).join('');
+
+            // Chỉ update nếu có thay đổi
+            if (queueList.innerHTML !== newHTML) {
+                queueList.innerHTML = newHTML;
+            }
         }
 
         function formatTime(seconds) {
@@ -725,7 +1132,6 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
-        // Queue functions
         async function addToQueue() {
             const url = document.getElementById('urlInput').value.trim();
             if (!url) return;
@@ -755,11 +1161,7 @@
         let clickTimeout = null;
 
         async function playQueueItem(index) {
-            // Debounce - prevent double click
-            if (clickTimeout) {
-                clearTimeout(clickTimeout);
-            }
-
+            if (clickTimeout) clearTimeout(clickTimeout);
             clickTimeout = setTimeout(async () => {
                 await fetch('/queue/play', {
                     method: 'POST',
@@ -778,7 +1180,6 @@
             await fetch('/queue/previous', { method: 'POST' });
         }
 
-        // Playback
         async function togglePause() {
             await fetch('/pause', { method: 'POST' });
         }
@@ -808,62 +1209,54 @@
             });
         }
 
-        // Timeline
         const timeline = document.getElementById('timeline');
 
         timeline.addEventListener('click', (e) => {
             const rect = timeline.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const percent = x / rect.width;
-            const position = percent * currentDuration;
-            seekTo(position);
+            const percent = (e.clientX - rect.left) / rect.width;
+            seekTo(percent * currentDuration);
         });
 
-        timeline.addEventListener('touchstart', (e) => {
-            isDragging = true;
-        });
+        timeline.addEventListener('touchstart', () => isDragging = true);
 
         timeline.addEventListener('touchmove', (e) => {
             if (!isDragging) return;
             const rect = timeline.getBoundingClientRect();
-            const x = e.touches[0].clientX - rect.left;
-            const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+            const percent = Math.max(0, Math.min(100, ((e.touches[0].clientX - rect.left) / rect.width) * 100));
             document.getElementById('timelineFill').style.width = percent + '%';
-            document.getElementById('timelineHandle').style.left = percent + '%';
         });
 
         timeline.addEventListener('touchend', (e) => {
             if (!isDragging) return;
             isDragging = false;
             const rect = timeline.getBoundingClientRect();
-            const x = e.changedTouches[0].clientX - rect.left;
-            const percent = Math.max(0, Math.min(1, x / rect.width));
-            const position = percent * currentDuration;
-            seekTo(position);
+            const percent = Math.max(0, Math.min(1, (e.changedTouches[0].clientX - rect.left) / rect.width));
+            seekTo(percent * currentDuration);
         });
 
-        // Bluetooth
         async function loadBluetoothDevices() {
             try {
                 const res = await fetch('/bluetooth/devices');
                 const data = await res.json();
-
                 const container = document.getElementById('bluetoothDevices');
 
                 if (data.devices.length === 0) {
-                    container.innerHTML = '<div class="loading">No devices found. Click Scan to discover.</div>';
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i class="fab fa-bluetooth"></i></div><div>No devices found<br>Click Scan to discover</div></div>';
                     return;
                 }
 
                 container.innerHTML = data.devices.map(device => `
                     <div class="device-item ${device.connected ? 'connected' : ''}">
                         <div class="device-info">
-                            <div class="device-name">${device.name}</div>
-                            <div class="device-mac">${device.mac}</div>
+                            <div class="device-name">
+                                <i class="fab fa-bluetooth-b"></i>
+                                ${device.name}
+                            </div>
+                            <div class="device-meta">${device.mac}</div>
                         </div>
                         ${device.connected
-                        ? `<button class="btn-sm btn-disconnect" onclick="disconnectBluetooth('${device.mac}')">Disconnect</button>`
-                        : `<button class="btn-sm btn-connect" onclick="connectBluetooth('${device.mac}')">Connect</button>`
+                        ? `<button class="btn btn-sm btn-disconnect" onclick="disconnectBluetooth('${device.mac}')"><i class="fas fa-link-slash"></i> Disconnect</button>`
+                        : `<button class="btn btn-sm btn-connect" onclick="connectBluetooth('${device.mac}')"><i class="fas fa-link"></i> Connect</button>`
                     }
                     </div>
                 `).join('');
@@ -875,7 +1268,7 @@
         async function scanBluetooth() {
             const btn = document.getElementById('scanBtn');
             btn.classList.add('scanning');
-            btn.textContent = '⏳ Scanning...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
             btn.disabled = true;
 
             try {
@@ -883,13 +1276,13 @@
 
                 setTimeout(() => {
                     btn.classList.remove('scanning');
-                    btn.textContent = '🔍 Scan';
+                    btn.innerHTML = '<i class="fas fa-magnifying-glass"></i> Scan';
                     btn.disabled = false;
                     loadBluetoothDevices();
                 }, 10000);
             } catch (error) {
                 btn.classList.remove('scanning');
-                btn.textContent = '🔍 Scan';
+                btn.innerHTML = '<i class="fas fa-magnifying-glass"></i> Scan';
                 btn.disabled = false;
             }
         }
@@ -901,7 +1294,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mac })
                 });
-
                 setTimeout(() => {
                     loadBluetoothDevices();
                     loadAudioSinks();
@@ -918,7 +1310,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mac })
                 });
-
                 setTimeout(() => {
                     loadBluetoothDevices();
                     loadAudioSinks();
@@ -933,28 +1324,29 @@
             loadAudioSinks();
         }
 
-        // Audio sinks
         async function loadAudioSinks() {
             try {
                 const res = await fetch('/audio/sinks');
                 const data = await res.json();
-
                 const container = document.getElementById('audioSinks');
 
                 if (data.sinks.length === 0) {
-                    container.innerHTML = '<div class="loading">No audio devices found</div>';
+                    container.innerHTML = '<div class="empty-state">No audio devices found</div>';
                     return;
                 }
 
                 container.innerHTML = data.sinks.map(sink => `
                     <div class="device-item ${sink.name === data.default ? 'active' : ''}">
                         <div class="device-info">
-                            <div class="device-name">${sink.type === 'bluetooth' ? '📶 ' : '🔊 '}${sink.name.split('.').pop()}</div>
-                            <div class="device-type">${sink.type}</div>
+                            <div class="device-name">
+                                <i class="${sink.type === 'bluetooth' ? 'fab fa-bluetooth' : 'fas fa-volume-high'}"></i>
+                                ${sink.name.split('.').pop()}
+                            </div>
+                            <div class="device-meta">${sink.type}</div>
                         </div>
                         ${sink.name === data.default
-                        ? '<span style="color: #667eea; font-weight: bold;">✓ Active</span>'
-                        : `<button class="btn-sm btn-select" onclick="selectSink('${sink.name}')">Select</button>`
+                        ? '<span class="active-badge"><i class="fas fa-circle-check"></i> Active</span>'
+                        : `<button class="btn btn-sm btn-select" onclick="selectSink('${sink.name}')"><i class="fas fa-check"></i> Select</button>`
                     }
                     </div>
                 `).join('');
@@ -970,39 +1362,53 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sink })
                 });
-
                 loadAudioSinks();
             } catch (error) {
                 alert('Failed to switch audio');
             }
         }
 
-        // Keyboard shortcuts
+        async function logout() {
+            if (!confirm('Logout?')) return;
+            try {
+                await fetch('/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                alert('Logout failed');
+            }
+        }
+
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
 
-            if (e.code === 'Space') {
-                e.preventDefault();
-                togglePause();
-            } else if (e.code === 'ArrowLeft') {
-                seek(-10);
-            } else if (e.code === 'ArrowRight') {
-                seek(10);
-            } else if (e.code === 'ArrowUp') {
-                const vol = parseInt(document.getElementById('volumeSlider').value);
-                updateVolume(Math.min(100, vol + 5));
-            } else if (e.code === 'ArrowDown') {
-                const vol = parseInt(document.getElementById('volumeSlider').value);
-                updateVolume(Math.max(0, vol - 5));
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    togglePause();
+                    break;
+                case 'ArrowLeft':
+                    seek(-10);
+                    break;
+                case 'ArrowRight':
+                    seek(10);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    const volUp = parseInt(document.getElementById('volumeSlider').value);
+                    updateVolume(Math.min(100, volUp + 5));
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    const volDown = parseInt(document.getElementById('volumeSlider').value);
+                    updateVolume(Math.max(0, volDown - 5));
+                    break;
             }
         });
 
-        // Enter to add
         document.getElementById('urlInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') addToQueue();
         });
 
-        // Init
         connectWebSocket();
         loadBluetoothDevices();
         loadAudioSinks();
