@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 // Users database (username: hashed_password)
 // Default password: admin123
 const USERS = {
-    'namtran': '$2b$10$03okGancnbTHaRn9L9ascOjazNq1t4PSdcVizpTrfxL8/a4oO5r.S'
+    'admin': '$2b$10$03okGancnbTHaRn9L9ascOjazNq1t4PSdcVizpTrfxL8/a4oO5r.S'
 };
 
 /**
