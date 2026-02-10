@@ -1,25 +1,15 @@
 FROM node:20-bookworm-slim
 
-# Cài đặt dependencies
+# Cài nsenter để exec ra host
 RUN apt-get update && apt-get install -y \
-    mpv \
-    pulseaudio \
-    pulseaudio-utils \
-    alsa-utils \
-    python3 \
-    curl \
-    ffmpeg \
+    util-linux \
     procps \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Cài yt-dlp mới nhất
+# Cài yt-dlp trong container (cho metadata)
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
-
-# Config PulseAudio cho container
-RUN mkdir -p /root/.config/pulse && \
-    echo "autospawn = no" > /root/.config/pulse/client.conf && \
-    echo "daemon-binary = /bin/true" >> /root/.config/pulse/client.conf
 
 WORKDIR /app
 
