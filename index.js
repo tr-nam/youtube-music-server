@@ -64,6 +64,8 @@ let playbackData = {
 let queue = [];
 let currentQueueIndex = -1;
 let isScanning = false;
+let isManualSwitch = false;  // Flag to prevent auto-play during manual switch
+let isSwitchingTrack = false; // Lock to prevent concurrent switches
 
 // ==================== Helper Functions ====================
 
@@ -121,19 +123,27 @@ function execPromise(command) {
 }
 
 /**
- * Kill all MPV processes
+ * Kill all MPV processes properly
  */
 function killAllMpv() {
     return new Promise((resolve) => {
         if (mpvProcess) {
             try {
+                // IMPORTANT: Remove listeners BEFORE killing to prevent unwanted callbacks
+                mpvProcess.removeAllListeners('close');
+                mpvProcess.removeAllListeners('error');
+                mpvProcess.removeAllListeners('exit');
+
                 mpvProcess.kill('SIGKILL');
-            } catch (e) { }
+            } catch (e) {
+                console.error('[Kill] Error:', e.message);
+            }
             mpvProcess = null;
         }
 
+        // Kill any stray MPV processes
         exec('pkill -9 mpv', () => {
-            setTimeout(resolve, 200);
+            setTimeout(resolve, 300);
         });
     });
 }
@@ -212,13 +222,31 @@ async function getDefaultSink() {
 // ==================== Playback Functions ====================
 
 /**
- * Play song from queue at given index
+ * Play song from queue at given index - MPV calls yt-dlp directly
  */
 async function playFromQueue(index) {
-    if (index < 0 || index >= queue.length) return;
+    if (index < 0 || index >= queue.length) {
+        console.log('[Queue] Invalid index:', index);
+        return;
+    }
+
+    // Prevent concurrent switches
+    if (isSwitchingTrack) {
+        console.log('[Queue] Switch already in progress, ignoring...');
+        return;
+    }
+
+    // Check if already playing this song
+    if (index === currentQueueIndex && mpvProcess) {
+        console.log('[Queue] Already playing this song, ignoring...');
+        return;
+    }
+
+    // Lock switching
+    isSwitchingTrack = true;
 
     const item = queue[index];
-    console.log(`[Queue] Playing [${index}]: ${item.title}`);
+    console.log(`[Queue] Switching to [${index}]: ${item.title}`);
 
     // Stop all MPV processes first
     await killAllMpv();
@@ -236,46 +264,83 @@ async function playFromQueue(index) {
         currentQueueIndex
     });
 
-    // Get stream URL from yt-dlp
-    exec(`yt-dlp -f bestaudio --no-playlist --user-agent "Mozilla/5.0" -g "${item.url}"`, async (error, stdout) => {
-        if (error) {
-            console.error(`[yt-dlp] Error: ${error.message}`);
-            playNext();
+    // Unlock immediately since we're not using async extraction
+    isSwitchingTrack = false;
+
+    console.log('[MPV] Starting playback with yt-dlp integration...');
+
+    mpvProcess = spawn('mpv', [
+        '--no-video',
+        '--really-quiet=no',
+        '--msg-level=all=info',
+        '--audio-device=pulse',
+        `--input-ipc-server=${MPV_SOCKET}`,
+        `--volume=${volume}`,
+        '--audio-client-name=YouTube-Music',
+
+        // Cache settings
+        '--cache=yes',
+        '--cache-secs=30',
+        '--demuxer-max-bytes=150M',
+        '--demuxer-max-back-bytes=75M',
+
+        // yt-dlp integration
+        '--script-opts=ytdl_hook-ytdl_path=yt-dlp',
+        '--ytdl=yes',
+        '--ytdl-format=bestaudio/best',
+
+        // Network settings
+        '--network-timeout=60',
+        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+
+        item.url
+    ], {
+        env: {
+            ...process.env,
+            HOME: '/home/home-server',
+            USER: 'home-server',
+            XDG_RUNTIME_DIR: '/run/user/1000',
+            PULSE_SERVER: 'unix:/run/user/1000/pulse/native',
+            PULSE_RUNTIME_PATH: '/run/user/1000/pulse'
+        }
+    });
+
+
+    // Log all MPV output
+    mpvProcess.stdout.on('data', (data) => {
+        const output = data.toString().trim();
+        if (output) console.log(`[MPV] ${output}`);
+    });
+
+    mpvProcess.stderr.on('data', (data) => {
+        const output = data.toString().trim();
+        if (output) console.error(`[MPV] ${output}`);
+    });
+
+    mpvProcess.on('close', (code, signal) => {
+        console.log(`[MPV] Process closed - code: ${code}, signal: ${signal}`);
+
+        if (mpvProcess === null) {
+            console.log('[MPV] Manual switch - skipping auto-play');
             return;
         }
 
-        const streamUrl = stdout.trim();
-        if (!streamUrl) {
-            console.error('[yt-dlp] Empty stream URL');
-            playNext();
-            return;
+        mpvProcess = null;
+
+        // Handle different exit codes
+        if (code === 0 || code === null) {
+            console.log('[Queue] ✅ Track finished, playing next...');
+            setTimeout(() => playNext(), 500);
+        } else {
+            console.error(`[MPV] ⚠️  Exit code ${code}, trying next song...`);
+            setTimeout(() => playNext(), 2000);
         }
+    });
 
-        // Safety: kill again before spawning new process
-        await killAllMpv();
-
-        console.log('[MPV] Starting playback...');
-
-        mpvProcess = spawn('mpv', [
-            '--no-video',
-            '--really-quiet',
-            '--audio-device=pulse',
-            `--input-ipc-server=${MPV_SOCKET}`,
-            `--volume=${volume}`,
-            streamUrl
-        ]);
-
-        mpvProcess.on('close', (code) => {
-            console.log(`[MPV] Track ended (code: ${code})`);
-            mpvProcess = null;
-            playNext();
-        });
-
-        mpvProcess.on('error', (err) => {
-            console.error(`[MPV] Error: ${err.message}`);
-            mpvProcess = null;
-            playNext();
-        });
+    mpvProcess.on('error', (err) => {
+        console.error(`[MPV] Spawn error: ${err.message}`);
+        mpvProcess = null;
+        setTimeout(() => playNext(), 2000);
     });
 }
 
@@ -283,7 +348,14 @@ async function playFromQueue(index) {
  * Play next song in queue
  */
 function playNext() {
+    // Don't play next if manual switch is in progress
+    if (isManualSwitch || isSwitchingTrack) {
+        console.log('[Queue] Skipping auto-play (switch in progress)');
+        return;
+    }
+
     if (currentQueueIndex < queue.length - 1) {
+        isManualSwitch = false; // Ensure flag is reset
         playFromQueue(currentQueueIndex + 1);
     } else {
         console.log('[Queue] End of queue');
@@ -299,7 +371,10 @@ function playNext() {
  */
 function playPrevious() {
     if (currentQueueIndex > 0) {
+        isManualSwitch = false; // Reset before play
         playFromQueue(currentQueueIndex - 1);
+    } else {
+        console.log('[Queue] Already at first song');
     }
 }
 
@@ -681,9 +756,10 @@ wss.on('connection', (ws) => {
 // ==================== Start Server ====================
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('\n🎵 YouTube Music Server');
-    console.log('======================');
-    console.log(`Server: http://0.0.0.0:${PORT}`);
-    console.log(`Login: admin / admin123`);
-    console.log('======================\n');
+    console.log('\n🎵 YouTube Music Server v2.0.0');
+    console.log('================================');
+    console.log(`🌐 Server: http://0.0.0.0:${PORT}`);
+    console.log(`👤 Login: admin / admin123`);
+    console.log(`⚠️  Change default password!`);
+    console.log('================================\n');
 });
