@@ -33,13 +33,10 @@ app.post('/play', (req, res) => {
 
     console.log(`Đang phát: ${url}`);
     
-    // Stop MPV cũ trên HOST
-    const killCmd = 'nsenter -t 1 -m -u -n -p pkill -9 mpv';
-    exec(killCmd, () => {
-        console.log('Stopped old playback');
-    });
+    // Stop bài cũ
+    exec('pkill -9 mpv', () => {});
     
-    // Lấy title (chạy trong container)
+    // Lấy title
     exec(`yt-dlp --no-playlist --print "%(title)s" "${url}"`, (err, title) => {
         if (!err && title) {
             currentSong = title.trim();
@@ -47,54 +44,45 @@ app.post('/play', (req, res) => {
         }
     });
 
-    // Escape URL cho shell
-    const escapedUrl = url.replace(/'/g, "'\\''");
+    // Escape URL
+    const escapedUrl = url.replace(/'/g, "'\\''").replace(/"/g, '\\"');
     
-    // Chạy MPV trên HOST qua nsenter
-    // nsenter -t 1 = vào namespace của PID 1 (init/systemd trên host)
-    const playCmd = `nsenter -t 1 -m -u -n -p bash -c "
-        nohup bash -c '
-            streamUrl=\\$(yt-dlp -f bestaudio --no-playlist -g \"${escapedUrl}\" 2>&1)
-            if [ \\$? -eq 0 ]; then
-                echo \"Playing: \\$streamUrl\" >> /tmp/mpv.log
-                mpv --no-video --really-quiet \"\\$streamUrl\" >> /tmp/mpv.log 2>&1
-            else
-                echo \"yt-dlp error: \\$streamUrl\" >> /tmp/mpv.log
-            fi
-        ' > /dev/null 2>&1 &
-    "`;
+    // Chạy MPV container mới với host audio
+    const playCmd = `docker run -d --rm \
+        --name mpv-player-${Date.now()} \
+        --device /dev/snd:/dev/snd \
+        --network host \
+        alpine sh -c "
+            apk add --no-cache mpv yt-dlp > /dev/null 2>&1
+            streamUrl=\\$(yt-dlp -f bestaudio --no-playlist -g '${escapedUrl}')
+            mpv --no-video --really-quiet \\$streamUrl
+        "`;
     
-    console.log('Starting playback on host...');
+    console.log('Starting playback container...');
     
     exec(playCmd, (error, stdout, stderr) => {
         if (error) {
-            console.error(`Exec error: ${error.message}`);
+            console.error(`Error: ${error.message}`);
             console.error(`Stderr: ${stderr}`);
             isPlaying = false;
-            return res.status(500).json({ error: 'Không thể phát nhạc' });
+            if (!res.headersSent) {
+                return res.status(500).json({ error: 'Không thể phát nhạc' });
+            }
+            return;
         }
         
         isPlaying = true;
-        console.log('Playback started on host');
-        
-        // Check sau 2s xem MPV có chạy không
-        setTimeout(() => {
-            exec('nsenter -t 1 -m -u -n -p pgrep -f "mpv.*youtube"', (err, output) => {
-                if (!output) {
-                    console.error('MPV not running after 2s');
-                    isPlaying = false;
-                }
-            });
-        }, 2000);
+        console.log('Playback container started');
     });
 
-    res.json({ success: true, message: 'Đang phát...' });
+    // Gửi response ngay
+    return res.json({ success: true, message: 'Đang phát...' });
 });
 
 app.post('/stop', (req, res) => {
-    exec('nsenter -t 1 -m -u -n -p pkill -9 mpv', (error) => {
+    exec('docker ps -q --filter "name=mpv-player" | xargs -r docker stop', (error) => {
         if (error) {
-            console.log('No MPV to kill');
+            console.log('No container to stop');
         }
         isPlaying = false;
         currentSong = '';
@@ -103,14 +91,14 @@ app.post('/stop', (req, res) => {
     res.json({ success: true });
 });
 
-// Monitor MPV status trên host
+// Monitor playback
 setInterval(() => {
     if (isPlaying) {
-        exec('nsenter -t 1 -m -u -n -p pgrep -f "mpv"', (err, stdout) => {
-            if (!stdout) {
+        exec('docker ps --filter "name=mpv-player" --format "{{.Names}}"', (err, stdout) => {
+            if (!stdout.trim()) {
                 isPlaying = false;
                 currentSong = '';
-                console.log('MPV process ended');
+                console.log('Playback ended');
             }
         });
     }
